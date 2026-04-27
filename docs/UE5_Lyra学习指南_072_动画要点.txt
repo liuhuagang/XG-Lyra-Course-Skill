@@ -1,0 +1,203 @@
+# UE5_Lyra学习指南_072_动画要点
+
+本文章仅为小刚-B站课堂-虚幻引擎视频课程Lyra-精讲的演讲手稿.
+本套课程链接:
+[UE5]虚幻引擎游戏案例Lyra精讲
+https://www.bilibili.com/cheese/play/ss112001159
+前置课程链接:
+[UE5]虚幻引擎UEC++从基础到进阶
+https://www.bilibili.com/cheese/play/ss28043
+文章内容由小刚撰写,采用了以下多种方式:
+1.口述转文字
+2.AI重构
+3.参考引擎源码
+4.Lyra工程源码
+5.结合社区论坛各位大佬的解析
+概述
+本节主要是被部分英文注释,统一翻译注册过来
+
+参考文献
+Lyra中的动画
+AnimBP Tour
+AnimBP Tour #1
+AnimBP Tour #1  (also see ABP_ItemAnimLayersBase)
+This AnimBP does not run any logic in its Event Graph.
+Logic in the Event Graph is processed on the Game Thread. Every tick, the Event Graph for each AnimBP must be run one after the other in sequence, which can be a performance bottleneck.
+For this project, we've instead used the new BlueprintThreadsafeUpdateAnimation function (found in the My Blueprint tab). Logic in BlueprintThreadsafeUpdateAnimation can be run in parallel for multiple AnimBP's simultaneously, removing the overhead on the Game Thread.
+
+AnimBP Tour #1  (also see ABP_ItemAnimLayersBase)
+此 AnimBP 在其事件图中不会执行任何逻辑。
+事件图中的逻辑是在游戏线程中处理的。每Tick 时，每个 AnimBP 的事件图必须依次按顺序运行，这可能会成为性能瓶颈。
+对于这个项目，我们改用了新的 BlueprintThreadsafeUpdateAnimation 函数（位于“我的蓝图”选项卡中）。BlueprintThreadsafeUpdateAnimation 中的逻辑可以同时为多个 AnimBP 并行运行，从而消除了游戏线程上的开销。
+
+
+
+AnimBP Tour #2
+AnimBP Tour #2
+This function is primarily responsible for gathering game data and processing it into useful information for selecting and driving animations.
+A caveat with Threadsafe functions is that we can't directly access data from game objects like we can in the Event Graph. This is because other threads could be running at the same time and they could be changing that data. Instead, we use the Property Access system to access data. The Property Access system will copy the data automatically when it's safe.
+Here's an example where we access the Pawn owner's location (search for "Property Access" from the context menu).
+
+此函数主要负责收集游戏数据，并将其处理成可用于选择和驱动动画的有用信息。
+使用线程安全函数的一个注意事项是，我们不能像在事件图中那样直接访问游戏对象的数据。这是因为其他线程可能同时运行，并且它们可能会更改这些数据。相反，我们使用属性访问系统来访问数据。属性访问系统会在安全时自动复制数据。
+这里有一个示例，我们访问Pawn所有者的当前位置（从上下文菜单中搜索“属性访问”）。
+
+
+
+AnimBP Tour #3
+AnimBP Tour #3
+This Anim Graph does not reference any animations directly. It instead provides entry points for Montages and Linked Animation Layers to play poses at certain points in the graph. This graph's main purpose is to blend those entry points together (e.g. blending upper and lower body poses together).
+This approach allows us to only load animations when they're needed. For example, a weapon will hold references to the required Montages and Linked Animation Layers, so that data will only be loaded when the weapon is loaded.
+E.g. B_WeaponInstance_Shotgun holds references to Montages and Linked Animation Layers. That data will only be loaded when B_WeaponInstance_Shotgun is loaded.
+B_WeaponInstance_Base is responsible for linking animation layers for weapons.
+
+AnimBP Tour #3
+此动画图并未直接引用任何动画。它为蒙太奇和链接的动画层提供了播放特定点姿势的入口点。此图的主要目的是将这些入口点融合在一起（例如，将上半身和下半身的姿势融合在一起）。
+这种方法使我们能够在需要时才加载动画。例如，武器会保存所需的蒙太奇和链接的动画层的引用，这样数据只有在加载武器时才会被加载。
+例如，B_WeaponInstance_Shotgun 保存了蒙太奇和链接的动画层的引用。该数据只有在加载 B_WeaponInstance_Shotgun 时才会被加载。
+B_WeaponInstance_Base 负责为武器链接动画层。
+
+
+
+AnimBP Tour #4
+AnimBP Tour #4
+This state machine handles the transitions between high level character states.
+The behavior of each state is mostly handled by the layers in ABP_ItemAnimLayersBase.
+
+AnimBP Tour #4
+这个状态机负责处理不同高级角色状态之间的转换。
+每个状态的行为主要由 ABP_ItemAnimLayersBase 中的各个层来处理。
+
+
+
+AnimBP Tour #5
+AnimBP Tour #5
+As with AnimBP_Mannequin_Base, this animbp performs its logic in BlueprintThreadSafeUpdateAnimation.Also, this animbp can access data from AnimBP_Mannequin_Base using Property Access and the GetMainAnimBPThreadSafe function. An example is below.
+
+与 AnimBP_Mannequin_Base 一样，此 animbp 的逻辑是在 BlueprintThreadSafeUpdateAnimation 中实现的。
+此外，此 animbp 可以通过属性访问和 GetMainAnimBPThreadSafe 函数从 AnimBP_Mannequin_Base 中获取数据。下面是一个示例。
+
+
+
+AnimBP Tour #6
+
+
+AnimBP Tour #6
+This animbp was authored to handle the logic for common weapon types, like Rifles and Pistols. If custom logic is needed (e.g. for a weapon like a bow), a different animbp could be authored that implements the ALI_ItemAnimLayers interface.
+Rather than referencing animation assets directly, this animbp has a set of variables that can be overriden by Child Animation Blueprints. These variables can be found in the "Anim Set - X" categories in the My Blueprint tab.
+This allows us to reuse the same logic for multiple weapons without referencing (and thus loading) the animation content for each weapon in one animbp.
+See ABP_RifleAnimLayers for an example of a Child Animation Blueprint that provides values for each "Anim Set" variable.
+
+此动画蓝图旨在处理常见武器类型（如步枪和手枪）的逻辑。如果需要自定义逻辑（例如对于弓这样的武器），则可以编写一个不同的动画蓝图，该蓝图实现 ALI_ItemAnimLayers 接口。
+与直接引用动画资源不同，此动画蓝图包含一组变量，这些变量可以由子动画蓝图覆盖。这些变量可以在“动画集 - X”类别中，在“我的蓝图”标签页中找到。
+这使我们能够为多种武器重复使用相同的逻辑，而无需在每个动画蓝图中引用（并加载）每种武器的动画内容。
+请参阅 ABP_RifleAnimLayers 以获取一个提供每个“动画集”变量值的子动画蓝图的示例。
+
+
+AnimBP Tour #7
+AnimBP Tour #7
+This animbp implements a layer for each state in AnimBP_Mannequin_Base.
+Layers can play a single animation, or contain complex logic like state machines.
+
+此 AnimBP 实现了针对 AnimBP_Mannequin_Base 中每个状态的单独层。这些层可以播放单个动画，或者包含诸如状态机之类的复杂逻辑。
+
+
+
+
+AnimBP Tour #8
+This is an example use case of Anim Node Functions.
+Anim Node Functions can be run on animation nodes. They will only run when the node is active, which allows us to localize logic to specific nodes or states.
+In this case, an Anim Node Function selects an animation to play when the node become relevant. Another Anim Node Function manages the play rate of the animation.
+
+这是“动画节点函数”示例用例。
+动画节点函数可在动画节点上运行。只有当节点处于激活状态时，它们才会运行，这使我们能够将逻辑集中到特定的节点或状态上。
+在这种情况下，一个动画节点函数会在节点变得相关时选择要播放的动画。另一个动画节点函数则管理动画的播放速率。
+AnimBP Tour #9
+AnimBP Tour #9
+This is an example of using Distance Matching to ensure that the distance traveled by the Start animation matches the distance traveled by the Pawn owner. This prevents foot sliding by keeping the animation and the motion model in sync.
+This effectively controls the play rate of the Start animation. We clamp the effective play rate to prevent the animation from playing too slowly or too quickly.
+If the effective play rate is clamped, we will still see some sliding. To fix this, we use Stride Warping later to adjust the pose to correct for the remaining difference.
+The Animation Locomotion Library plugin is required to have access to Distance Matching functions.
+
+这是一个使用“距离匹配”来确保“启动动画”所移动的距离与“棋子拥有者”所移动的距离相匹配的示例。这能防止脚部滑动，因为它使动画和运动模型保持同步。
+这有效地控制了“启动动画”的播放速度。我们将有效播放速度进行限制，以防止动画播放过慢或过快。
+如果有效播放速度被限制，我们仍会看到一些滑动现象。为了解决这个问题，我们稍后会使用“步幅扭曲”来调整姿势，以纠正剩余的差异。
+“动画移动库”插件需要能够使用“距离匹配”功能。
+AnimBP Tour #10
+AnimBP Tour #10
+This is an example of warping the authored pose of the animation to match what the Pawn owner is actually doing.
+Orientation Warping will rotate the lower body of the pose to align to the direction the Pawn owner is moving. We only author Forward/Back/Left/Right directions and rely on warping to fill in the gaps.
+Orientation Warping will then realign the upper body so that the character continues to aim where the camera is looking.
+Stride Warping will shorten or lengthen the stride of the legs when the authored speed of the animation doesn't match the actual speed of the Pawn owner.
+The Animation Warping plugin is required to have access to these nodes.
+
+这是一个示例，展示了如何调整动画的原始姿势，使其与玩家实际的动作相匹配。
+方向扭曲会旋转姿势的下半身，使其与玩家移动的方向保持一致。我们只定义了“前/后/左/右”这些方向，并依靠扭曲来填补其他方向的空白。
+然后，方向扭曲会重新调整上半身的位置，使角色能够继续朝着摄像机的方向瞄准。
+步幅扭曲会在动画的设定速度与玩家的实际速度不匹配时，缩短或延长腿部的步幅。
+“动画扭曲”插件需要能够访问这些节点。
+
+
+
+
+TurnInPlace
+TurnInPlace #1
+TurnInPlace #1 (also see ABP_ItemAnimLayersBase)
+When the Pawn owner rotates, the mesh component rotates with it, which causes the feet to slide.
+Here we counter the character's rotation to keep the feet planted.
+
+当棋子的所有者旋转时，网格组件也会随之旋转，这会导致棋子的脚部滑动。
+在这里，我们抵消角色的旋转动作，以保持脚部稳固不滑动。
+
+
+TurnInPlace #2
+This function handles updating the yaw offset depending on the current state of the Pawn owner.
+此函数会根据玩家控制角色的当前状态来更新偏航角度的偏移量。
+
+
+TurnInPlace #3
+TurnInPlace #3
+We clamp the offset because at large offsets the character has to aim too far backwards, which over twists the spine. The turn in place animations will usually keep up with the offset, but this clamp will cause the feet to slide if the user rotates the camera too quickly.
+If desired, this clamp could be replaced by having aim animations that can go up to 180 degrees or by triggering turn in place animations more aggressively.
+
+我们对偏移量进行限制，因为当偏移量较大时，角色需要向后瞄准的距离会过长，这会导致脊椎过度扭曲。转位动画通常会随着偏移量的变化而同步变化，但这个限制会使双脚滑动，如果用户旋转摄像机的速度过快的话。
+如果需要的话，这个限制可以被替换为具有可达到 180 度的瞄准动画，或者通过更激进地触发转位动画来实现。
+
+
+
+TurnInPlace #4
+
+TurnInPlace #4
+We want aiming to counter the yaw offset to keep the weapon aiming in line with the camera.
+我们的目标是抵消偏航偏差，以使武器的瞄准方向与摄像机保持一致。
+
+
+
+TurnInPlace #5
+
+
+TurnInPlace #5
+When the yaw offset gets too big, we trigger TurnInPlace animations to rotate the character back. E.g. if the camera is rotated 90 degrees to the right, it will be facing the character's right shoulder. If we play an animation that rotates the character 90 degrees to the left, the character will once again be facing away from the camera.
+We use the "TurnYawAnimModifier" animation modifier to generate the necessary curves on each TurnInPlace animation.
+See ABP_ItemAnimLayersBase for examples of triggering TurnInPlace animations.
+
+当偏航角度过大时，我们会触发“转身原地”动画来使角色重新转身。例如，如果摄像机向右旋转 90 度，它将面向角色的右肩。如果我们播放一个将角色向左旋转 90 度的动画，角色将再次背对摄像机。
+我们使用“转身偏航动画修改器”动画修改器在每个“转身原地”动画中生成所需的曲线。
+有关触发“转身原地”动画的示例，请参阅 ABP_物品动画层基类。
+
+
+
+TurnInPlace #6
+
+TurnInPlace #6 (also see AnimBP_Mannequin_Base)
+When the yaw offset gets big enough, we trigger a TurnInPlace animation to reduce the offset.
+TurnInPlace animations often end with some settling motion when the rotation is finished. During this time, we move to the TurnInPlaceRecovery state, which can transition back to the TurnInPlaceRotation state if the offset gets big again.
+This way we can keep playing the rotation part of the TurnInPlace animations if the Pawn owner keeps rotating, without waiting for the settle to finish.
+
+当偏航偏移量变得足够大时，我们会触发“原地旋转”动画来减小该偏移量。
+“原地旋转”动画通常在旋转完成时会伴有一定的平移动作。在此期间，我们会进入“原地旋转恢复”状态，如果偏移量再次变大，该状态可以转换回“原地旋转”状态。
+这样，如果角色拥有者持续旋转，我们就可以继续播放“原地旋转”动画的旋转部分，而无需等待平移动作完成。
+
+
+总结
+本节只是列举了动画中的部分关键注释.尚未开始正式讲解.

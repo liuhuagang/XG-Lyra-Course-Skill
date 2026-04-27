@@ -1,0 +1,134 @@
+# UE5_Lyra学习指南_084_讲解GA_Melee
+
+本文章仅为小刚-B站课堂-虚幻引擎视频课程Lyra-精讲的演讲手稿.  
+本套课程链接:
+[UE5]虚幻引擎游戏案例Lyra精讲
+https://www.bilibili.com/cheese/play/ss112001159
+前置课程链接:
+[UE5]虚幻引擎UEC++从基础到进阶
+https://www.bilibili.com/cheese/play/ss28043
+文章内容由小刚撰写,采用了以下多种方式:  
+1.口述转文字  
+2.AI重构  
+3.参考引擎源码  
+4.Lyra工程源码  
+5.结合社区论坛各位大佬的解析  
+概述
+本节讲解单手攻击.
+因为上下文联系比较多.所以使用Word方便截图
+
+能力的注册
+
+(Ability="/Script/Engine.BlueprintGeneratedClass'/ShooterCore/Game/Melee/GA_Melee.GA_Melee_C'",AbilityLevel=1,InputTag=(TagName="InputTag.Ability.Melee"))
+
+
+
+近战的动画选择
+
+
+近战胶囊体射线检测
+
+
+核对友伤
+
+注意这个写法很有意思
+
+
+
+核对遮挡性
+
+
+添加冲刺效果
+
+
+
+施加挥集效果
+
+
+背景音效的改变
+
+GE命中效果
+
+
+伤害计算
+
+GEEC的代码较长.不在此处截图.同时涉及到属性的修改.
+
+ULyraDamageExecution::Execute_Implementation(const FGameplayEffectCustomExecutionParameters &, FGameplayEffectCustomExecutionOutput &) LyraDamageExecution.cpp:45
+FActiveGameplayEffectsContainer::ExecuteActiveEffectsFrom(FGameplayEffectSpec &, FPredictionKey) GameplayEffect.cpp:3138
+UAbilitySystemComponent::ExecuteGameplayEffect(FGameplayEffectSpec &, FPredictionKey) AbilitySystemComponent.cpp:1022
+UAbilitySystemComponent::ApplyGameplayEffectSpecToSelf(const FGameplayEffectSpec &, FPredictionKey) AbilitySystemComponent.cpp:953
+UAbilitySystemComponent::ApplyGameplayEffectSpecToTarget(const FGameplayEffectSpec &, UAbilitySystemComponent *, FPredictionKey) AbilitySystemComponent.cpp:792
+FGameplayAbilityTargetData::ApplyGameplayEffectSpec(FGameplayEffectSpec &, FPredictionKey) GameplayAbilityTargetTypes.cpp:47
+UGameplayAbility::ApplyGameplayEffectSpecToTarget(FGameplayAbilitySpecHandle, const FGameplayAbilityActorInfo *, FGameplayAbilityActivationInfo, FGameplayEffectSpecHandle, const FGameplayAbilityTargetDataHandle &) GameplayAbility.cpp:2111
+UGameplayAbility::ApplyGameplayEffectToTarget(FGameplayAbilitySpecHandle, const FGameplayAbilityActorInfo *, FGameplayAbilityActivationInfo, const FGameplayAbilityTargetDataHandle &, TSubclassOf<…>, float, int) GameplayAbility.cpp:2084
+UGameplayAbility::BP_ApplyGameplayEffectToTarget(FGameplayAbilityTargetDataHandle, TSubclassOf<…>, int, int) GameplayAbility.cpp:2052
+UFunction::Invoke(UObject *, FFrame &, void *const) Class.cpp:7460
+UObject::CallFunction(FFrame &, void *const, UFunction *) ScriptCore.cpp:1175
+[内联] FFrame::Step(UObject *, void *const) ScriptCore.cpp:509
+UObject::execLet(UObject *, FFrame &, void *const) ScriptCore.cpp:2893
+[内联] FFrame::Step(UObject *, void *const) ScriptCore.cpp:509
+[蓝图] GA_Weapon_Fire: PlayMontageAndWait  Event Graph
+ProcessLocalScriptFunction(UObject *, FFrame &, void *const) ScriptCore.cpp:1275
+ProcessScriptFunction<…>(UObject *, UFunction *, FFrame &, void *const, void (*)(UObject *, FFrame &, void *)) ScriptCore.cpp:1067
+`ProcessLocalFunction'::`2'::<lambda_1>::operator()() ScriptCore.cpp:1320
+ProcessLocalFunction(UObject *, UFunction *, FFrame &, void *const) ScriptCore.cpp:1337
+[内联] FFrame::Step(UObject *, void *const) ScriptCore.cpp:509
+[蓝图] GA_Weapon_Fire: Event OnRangedWeaponTargetDataReady  Function /Game/Weapons/GA_Weapon_Fire.GA_Weapon_Fire_C:OnRangedWeaponTargetDataReady
+ProcessLocalScriptFunction(UObject *, FFrame &, void *const) ScriptCore.cpp:1275
+UObject::ProcessInternal(UObject *, FFrame &, void *const) ScriptCore.cpp:1364
+UFunction::Invoke(UObject *, FFrame &, void *const) Class.cpp:7460
+UObject::ProcessEvent(UFunction *, void *) ScriptCore.cpp:2209
+ULyraGameplayAbility_RangedWeapon::OnTargetDataReadyCallback(const FGameplayAbilityTargetDataHandle &, FGameplayTag) LyraGameplayAbility_RangedWeapon.cpp:539
+TBaseUObjectMethodDelegateInstance::ExecuteIfSafe(const FGameplayAbilityTargetDataHandle &, FGameplayTag) DelegateInstancesImpl.h:689
+[内联] TMulticastDelegateBase::Broadcast(const FGameplayAbilityTargetDataHandle &, FGameplayTag) MulticastDelegateBase.h:258
+TMulticastDelegate<void __cdecl(FGameplayAbilityTargetDataHandle const & __ptr64,FGameplayTag),FDefaultDelegateUserPolicy>::Broadcast(const FGameplayAbilityTargetDataHandle &,FGameplayTag) DelegateSignatureImpl.inl:1080
+UAbilitySystemComponent::ServerSetReplicatedTargetData_Implementation(FGameplayAbilitySpecHandle, FPredictionKey, const FGameplayAbilityTargetDataHandle &, FGameplayTag, FPredictionKey) AbilitySystemComponent_Abilities.cpp:3968
+UFunction::Invoke(UObject *, FFrame &, void *const) Class.cpp:7460
+[蓝图] AbilitySystemComponent: ServerSetReplicatedTargetData  Function /Script/GameplayAbilities.AbilitySystemComponent:ServerSetReplicatedTargetData
+UObject::ProcessEvent(UFunction *, void *) ScriptCore.cpp:2209
+FObjectReplicator::ReceivedRPC(FNetBitReader &, const FReplicationFlags &, const FFieldNetCache *, const bool, bool &, TSet<…> &) DataReplication.cpp:1402
+FObjectReplicator::ReceivedBunch(FNetBitReader &, const FReplicationFlags &, const bool, bool &) DataReplication.cpp:1178
+UActorChannel::ProcessBunchInternal(FInBunch &) DataChannel.cpp:3436
+[内联] UActorChannel::ProcessBunch(FInBunch &) DataChannel.cpp:3528
+UActorChannel::ReceivedBunch(FInBunch &) DataChannel.cpp:3243
+UChannel::ReceivedSequencedBunch(FInBunch &) DataChannel.cpp:576
+UChannel::ReceivedNextBunch(FInBunch &, bool &) DataChannel.cpp:1081
+UChannel::ReceivedRawBunch(FInBunch &, bool &) DataChannel.cpp:697
+UNetConnection::DispatchPacket(FBitReader &, int, bool &, bool &) NetConnection.cpp:3926
+UNetConnection::ReceivedPacket(FBitReader &, bool, bool) NetConnection.cpp:3294
+[内联] UNetConnection::ReinjectDelayedPackets() NetConnection.cpp:2270
+UNetConnection::PostTickDispatch() NetConnection.cpp:2183
+UNetDriver::PostTickDispatch() NetDriver.cpp:2625
+[内联] Invoke(void (UNetDriver::*)(), UNetDriver *&) Invoke.h:66
+[内联] UE::Core::Private::Tuple::TTupleBase::ApplyAfter(void (UNetDriver::*&)(), UNetDriver *&) Tuple.h:320
+V::TBaseUObjectMethodDelegateInstance::ExecuteIfSafe() DelegateInstancesImpl.h:689
+[内联] TMulticastDelegateBase::Broadcast() MulticastDelegateBase.h:258
+TMulticastDelegate::Broadcast() DelegateSignatureImpl.inl:1080
+UWorld::Tick(ELevelTick, float) LevelTick.cpp:1336
+UEditorEngine::Tick(float, bool) EditorEngine.cpp:2149
+UUnrealEdEngine::Tick(float, bool) UnrealEdEngine.cpp:530
+ULyraEditorEngine::Tick(float, bool) LyraEditorEngine.cpp:37
+FEngineLoop::Tick() LaunchEngineLoop.cpp:5619
+[内联] EngineTick() Launch.cpp:60
+GuardedMain(const wchar_t *) Launch.cpp:189
+LaunchWindowsStartup(HINSTANCE__ *, HINSTANCE__ *, char *, int, const wchar_t *) LaunchWindows.cpp:271
+WinMain(HINSTANCE__ *, HINSTANCE__ *, char *, int) LaunchWindows.cpp:339
+
+此处贴出堆栈.
+点出核心代码调用.
+
+
+
+
+
+伤害冲击音效
+
+
+人物受击效果
+
+
+武器挥动的音效
+
+注意这个AN_Melee目前没有进行设计.应当设计
+总结
