@@ -49,7 +49,7 @@
 |--------|------|------|
 | 课程讲义 | [docs/](../docs/) | 120+ 篇手写讲义（编号 001~122），125+ 小时课程内容逐课整理，覆盖全部 10 个章节 |
 | 细粒度知识文档 | [knowledge/](../knowledge/) | 82 篇按章节组织的知识文档，Skill 的知识来源，可独立查阅 |
-| AI 知识辅助 Skill | [.trae/skills/xg-lyra-course/](.trae/skills/xg-lyra-course/) | 面向开发实践的 AI 可交互知识库 |
+| AI 知识辅助 Skill | [skill/xg-lyra-course/](skill/xg-lyra-course/) | 面向开发实践的 AI 可交互知识库 |
 
 ---
 
@@ -75,15 +75,15 @@ Skill 包含 1 篇主入口文档和 **9 篇系统参考文档**，覆盖 Lyra �
 
 | 参考文档 | 覆盖系统 |
 |----------|---------|
-| [Experience 框架与加载流程](.trae/skills/xg-lyra-course/references/Experience框架与加载流程.md) | Experience 定义、3 阶段加载、GameFeature 激活 |
-| [GAS 能力系统架构](.trae/skills/xg-lyra-course/references/GAS能力系统架构.md) | AbilitySet、ASC 输入激活、HealthComponent、AbilityCost |
-| [InitState 初始化状态机](.trae/skills/xg-lyra-course/references/InitState初始化状态机.md) | 4 态状态机、组件注册方式 |
-| [输入系统与 InputConfig](.trae/skills/xg-lyra-course/references/输入系统与InputConfig.md) | Tag→Action 映射、绑定管线 |
-| [角色初始化与移动系统](.trae/skills/xg-lyra-course/references/角色初始化与移动系统.md) | PlayerSpawningManager、移动加速度 Polar 量化 |
-| [装备与武器系统](.trae/skills/xg-lyra-course/references/装备与武器系统.md) | 三层装备设计、Spread/Heat 机制 |
-| [UI 层栈架构](.trae/skills/xg-lyra-course/references/UI层栈架构.md) | 四层 UI 栈、HUDLayout |
-| [动画系统概览](.trae/skills/xg-lyra-course/references/动画系统概览.md) | Lyra 动画架构 |
-| [库存与消息系统](.trae/skills/xg-lyra-course/references/库存与消息系统.md) | 四层库存架构、GameplayMessageRouter、GamePhase |
+| [Experience 框架与加载流程](skill/xg-lyra-course/references/Experience框架与加载流程.md) | Experience 定义、3 阶段加载、GameFeature 激活 |
+| [GAS 能力系统架构](skill/xg-lyra-course/references/GAS能力系统架构.md) | AbilitySet、ASC 输入激活、HealthComponent、AbilityCost |
+| [InitState 初始化状态机](skill/xg-lyra-course/references/InitState初始化状态机.md) | 4 态状态机、组件注册方式 |
+| [输入系统与 InputConfig](skill/xg-lyra-course/references/输入系统与InputConfig.md) | Tag→Action 映射、绑定管线 |
+| [角色初始化与移动系统](skill/xg-lyra-course/references/角色初始化与移动系统.md) | PlayerSpawningManager、移动加速度 Polar 量化 |
+| [装备与武器系统](skill/xg-lyra-course/references/装备与武器系统.md) | 三层装备设计、Spread/Heat 机制 |
+| [UI 层栈架构](skill/xg-lyra-course/references/UI层栈架构.md) | 四层 UI 栈、HUDLayout |
+| [动画系统概览](skill/xg-lyra-course/references/动画系统概览.md) | Lyra 动画架构 |
+| [库存与消息系统](skill/xg-lyra-course/references/库存与消息系统.md) | 四层库存架构、GameplayMessageRouter、GamePhase |
 
 ### 使用示例
 

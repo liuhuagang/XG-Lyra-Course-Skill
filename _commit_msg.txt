@@ -1,0 +1,6 @@
+refactor: reorganize project structure
+
+- Condense .trae/skills/xg-lyra-course/ to skill/xg-lyra-course/
+- Move knowledge/ Chinese originals to knowledge/zh/, remove log.md
+- Add README indexes for knowledge/ and knowledge/zh/
+- Update all references in README.md
