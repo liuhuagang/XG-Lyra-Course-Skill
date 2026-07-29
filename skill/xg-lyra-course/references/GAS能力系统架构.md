@@ -1,16 +1,16 @@
-# GAS 能力系统架构
+# GAS Ability System Architecture
 
-## 概述
+## Overview
 
-Lyra 对 UE GAS（GameplayAbilitySystem）进行了多层扩展，形成了一套完整的**能力授予→激活→执行→伤害计算**体系。
+Lyra extends UE's GAS (GameplayAbilitySystem) with multiple layers, forming a complete **Ability Grant → Activation → Execution → Damage Calculation** system.
 
 ---
 
-## AbilitySet：能力聚合体
+## AbilitySet: Ability Aggregate
 
-**文件**：`Source/LyraGame/AbilitySystem/LyraAbilitySet.h`
+**File**: `Source/LyraGame/AbilitySystem/LyraAbilitySet.h`
 
-AbilitySet 是一个数据资产，将 GA、GE、AttributeSet 聚合为一个可配置单元。
+AbilitySet is a data asset that aggregates GA, GE, and AttributeSet into a configurable unit.
 
 ```cpp
 UCLASS(BlueprintType)
@@ -19,26 +19,26 @@ class LYRAGAME_API ULyraAbilitySet : public UPrimaryDataAsset
     GENERATED_BODY()
 
 public:
-    // 要授予的 GameplayAbility
+    // GameplayAbilities to grant
     UPROPERTY(EditDefaultsOnly, Category = "Gameplay Abilities")
     TArray<FLyraAbilitySet_GameplayAbility> GrantedGameplayAbilities;
 
-    // 要应用的 GameplayEffect
+    // GameplayEffects to apply
     UPROPERTY(EditDefaultsOnly, Category = "Gameplay Effects")
     TArray<FLyraAbilitySet_GameplayEffect> GrantedGameplayEffects;
 
-    // 要初始化的 AttributeSet
+    // AttributeSets to initialize
     UPROPERTY(EditDefaultsOnly, Category = "Attribute Sets")
     TArray<FLyraAbilitySet_AttributeSet> GrantedAttributes;
 };
 
-// 授予流程
+// Grant flow
 void ULyraAbilitySet::GiveToAbilitySystem(
     ULyraAbilitySystemComponent* ASC,
     ULyraEquipmentInstance* SourceObject,
     TArray<FGameplayAbilitySpecHandle>& OutHandles) const
 {
-    // 1. 授予 GA
+    // 1. Grant GA
     for (const auto& Entry : GrantedGameplayAbilities)
     {
         FGameplayAbilitySpec Spec(Entry.Ability);
@@ -46,7 +46,7 @@ void ULyraAbilitySet::GiveToAbilitySystem(
         OutHandles.Add(ASC->GiveAbility(Spec));
     }
 
-    // 2. 应用 GE
+    // 2. Apply GE
     for (const auto& Entry : GrantedGameplayEffects)
     {
         FGameplayEffectContextHandle Context = ASC->MakeEffectContext();
@@ -54,7 +54,7 @@ void ULyraAbilitySet::GiveToAbilitySystem(
         ASC->BP_ApplyGameplayEffectSpecToSelf(Entry.Effect->MakeSpec());
     }
 
-    // 3. 初始化属性集
+    // 3. Initialize attribute sets
     for (const auto& Entry : GrantedAttributes)
     {
         ASC->InitStats(Entry.AttributeSetType, nullptr);
@@ -64,23 +64,23 @@ void ULyraAbilitySet::GiveToAbilitySystem(
 
 ---
 
-## ActivationGroup：激活组管理
+## ActivationGroup: Activation Group Management
 
-**文件**：`Source/LyraGame/AbilitySystem/Abilities/LyraGameplayAbility.h`
+**File**: `Source/LyraGame/AbilitySystem/Abilities/LyraGameplayAbility.h`
 
-Lyra 在 `ULyraGameplayAbility` 中引入了 `ActivationGroup` 概念，控制多 GA 同时激活时的行为：
+Lyra introduces the `ActivationGroup` concept in `ULyraGameplayAbility` to control behavior when multiple GAs are activated simultaneously:
 
 ```cpp
 UENUM(BlueprintType)
 enum class ELyraAbilityActivationGroup : uint8
 {
-    // 独立激活，不与其他 GA 冲突
+    // Independent activation, no conflict with other GAs
     Independent,
 
-    // 独占替换：激活此 GA 时，替换同组中其他 Exclusive_Replaceable GA
+    // Exclusive replaceable: activating this GA replaces other Exclusive_Replaceable GAs in the same group
     Exclusive_Replaceable,
 
-    // 独占阻塞：激活此 GA 时，阻塞同组中其他 GA 的激活
+    // Exclusive blocking: activating this GA blocks other GAs in the same group
     Exclusive_Blocking
 };
 
@@ -90,24 +90,24 @@ class LYRAGAME_API ULyraGameplayAbility : public UGameplayAbility
     GENERATED_BODY()
 
 public:
-    // 此 GA 的激活组
+    // This GA's activation group
     UPROPERTY(EditDefaultsOnly, Category = "Lyra|Ability")
     ELyraAbilityActivationGroup ActivationGroup;
 };
 ```
 
-激活组规则：
-- **Independent**：不与任何 GA 冲突，可同时激活（如移动、跳跃）
-- **Exclusive_Replaceable**：被 Exclusive_Blocking 替换时取消；否则可同时存在
-- **Exclusive_Blocking**：激活时取消同组所有 Replaceable GA
+Activation group rules:
+- **Independent**: No conflict with any GA, can activate simultaneously (e.g., movement, jump)
+- **Exclusive_Replaceable**: Canceled when replaced by Exclusive_Blocking; otherwise can coexist
+- **Exclusive_Blocking**: Cancels all Replaceable GAs in the same group on activation
 
 ---
 
-## TagRelationshipMapping：标签关系映射
+## TagRelationshipMapping: Tag Relationship Mapping
 
-**文件**：`Source/LyraGame/AbilitySystem/LyraAbilityTagRelationshipMapping.h`
+**File**: `Source/LyraGame/AbilitySystem/LyraAbilityTagRelationshipMapping.h`
 
-通过数据资产配置 GA 之间的 Cancel/Block 关系：
+Configures Cancel/Block relationships between GAs via data assets:
 
 ```cpp
 USTRUCT()
@@ -122,58 +122,58 @@ UCLASS()
 class ULyraAbilityTagRelationshipMapping : public UDataAsset
 {
     GENERATED_BODY()
-    // 配置条目
+    // Configuration entries
     UPROPERTY(EditDefaultsOnly)
     TArray<FLyraAbilityRelationshipMappingEntry> AbilityRelationshipMappingEntries;
 };
 ```
 
-引擎框架在激活 GA 前自动检查 TagRelationshipMapping，决定是否取消或阻塞已有 GA。
+The engine framework automatically checks TagRelationshipMapping before activating a GA to decide whether to cancel or block existing GAs.
 
 ---
 
-## 属性集（AttributeSet）
+## AttributeSet
 
-Lyra 采用多层属性集设计：
+Lyra uses a multi-layer AttributeSet design:
 
-| 属性集 | 文件路径 | 核心属性 |
-|--------|---------|---------|
-| ULyraHealthSet | `AbilitySystem/Attributes/LyraHealthSet.h` | Health、MaxHealth、DamageResistance |
-| ULyraCombatSet | `AbilitySystem/Attributes/LyraCombatSet.h` | BaseDamage、MoveSpeed |
+| AttributeSet | File Path | Core Attributes |
+|--------------|-----------|-----------------|
+| ULyraHealthSet | `AbilitySystem/Attributes/LyraHealthSet.h` | Health, MaxHealth, DamageResistance |
+| ULyraCombatSet | `AbilitySystem/Attributes/LyraCombatSet.h` | BaseDamage, MoveSpeed |
 
-**ClampAttribute 机制**：HealthSet 使用 `FOnAttributeChangeRequest` 在属性变更前拦截，确保属性值不越界：
+**ClampAttribute mechanism**: HealthSet uses `FOnAttributeChangeRequest` to intercept attribute changes before they occur, ensuring attribute values stay within bounds:
 
 ```
-属性预变更事件
-    → ClampAttribute（检测是否超出 [Min, Max]）
-    → 超出时修正为边界值
-    → 实际属性变更
+Attribute pre-change event
+    → ClampAttribute (checks if exceeding [Min, Max])
+    → Corrects to boundary value if out of range
+    → Actual attribute change
 ```
 
 ---
 
 ## FLyraGameplayEffectContext
 
-**文件**：`Source/LyraGame/AbilitySystem/LyraGameplayEffectContext.h`
+**File**: `Source/LyraGame/AbilitySystem/LyraGameplayEffectContext.h`
 
-扩展 GE Context 以携带额外伤害信息：
+Extends GE Context to carry additional damage information:
 
 ```cpp
 USTRUCT()
 struct FLyraGameplayEffectContext : public FGameplayEffectContext
 {
-    // 弹药 ID（用于区分同一武器不同子弹的伤害）
+    // Cartridge ID (used to distinguish damage from different bullets of the same weapon)
     int32 CartridgeID;
 };
 ```
 
-`CartridgeID` 用于伤害回溯——当伤害 Apply 后，可通过 CartridgeID 关联到特定的子弹或武器实例。
+`CartridgeID` is used for damage追溯—when damage is Applied, it can be associated with a specific bullet or weapon instance via CartridgeID.
 
 ---
 
-## 伤害计算（GEEC）
+## Damage Calculation (GEEC)
 
-**文件**：`Source/LyraGame/AbilitySystem/Executions/LyraDamageExecution.h`
+**File**: `Source/LyraGame/AbilitySystem/Executions/LyraDamageExecution.h`
 
 ```cpp
 UCLASS()
@@ -190,26 +190,26 @@ public:
 };
 ```
 
-伤害计算公式：
+Damage formula:
 ```
-最终伤害 = BaseDamage × DistanceAttenuation × PhysicalMaterialAttenuation
-           × DamageInteractionAllowedMultiplier
+FinalDamage = BaseDamage × DistanceAttenuation × PhysicalMaterialAttenuation
+              × DamageInteractionAllowedMultiplier
 ```
 
-| 因子 | 来源 | 说明 |
-|------|------|------|
-| BaseDamage | ULyraCombatSet | 武器基础伤害 |
-| DistanceAttenuation | 曲线表 | 距离衰减曲线 |
-| PhysicalMaterialAttenuation | 物理材质表 | 不同材质减伤比 |
-| DamageInteractionAllowedMultiplier | DamageInteractionAllowed 标签 | 是否允许友伤或对特定目标类型 |
+| Factor | Source | Description |
+|--------|--------|-------------|
+| BaseDamage | ULyraCombatSet | Weapon base damage |
+| DistanceAttenuation | Curve table | Distance falloff curve |
+| PhysicalMaterialAttenuation | Physical material table | Damage reduction by different materials |
+| DamageInteractionAllowedMultiplier | DamageInteractionAllowed tag | Whether friendly fire or specific target types are allowed |
 
 ---
 
-## ASC 输入激活管线
+## ASC Input Activation Pipeline
 
-**文件**：`Source/LyraGame/AbilitySystem/LyraAbilitySystemComponent.h`
+**File**: `Source/LyraGame/AbilitySystem/LyraAbilitySystemComponent.h`
 
-Lyra 扩展了 ASC，实现了显式的**三阶段输入处理管线**，而非依赖默认的 `AbilityLocalInputPressed`：
+Lyra extends ASC with an explicit **three-stage input processing pipeline**, rather than relying on the default `AbilityLocalInputPressed`:
 
 ```cpp
 UCLASS()
@@ -218,60 +218,60 @@ class LYRAGAME_API ULyraAbilitySystemComponent : public UAbilitySystemComponent
     GENERATED_BODY()
 
 public:
-    // 输入按下：记录到 PressedSpecHandles
+    // Input pressed: records to PressedSpecHandles
     void AbilityInputPressed(const FGameplayTag& InputTag);
 
-    // 输入释放：从 Pressed 移到 Released
+    // Input released: moves from Pressed to Released
     void AbilityInputReleased(const FGameplayTag& InputTag);
 
-    // 每帧执行：处理三阶段输入
+    // Per-frame execution: processes three-stage input
     void ProcessAbilityInput(float DeltaTime, bool bGamePaused);
 
 protected:
-    // 当前帧按下的输入
+    // Inputs pressed this frame
     TArray<FGameplayTag> InputPressedSpecHandles;
 
-    // 按住未释放的输入
+    // Inputs held (not released yet)
     TArray<FGameplayTag> InputHeldSpecHandles;
 
-    // 当前帧释放的输入
+    // Inputs released this frame
     TArray<FGameplayTag> InputReleasedSpecHandles;
 
-    // 是否被阻塞（如 Modal UI 打开时）
+    // Whether input is blocked (e.g., when Modal UI is open)
     bool bBlockInput = false;
 };
 ```
 
-### ProcessAbilityInput 三阶段处理
+### ProcessAbilityInput Three-Stage Processing
 
 ```
-ProcessAbilityInput 每帧执行
+ProcessAbilityInput executed each frame
     │
-    ├── 阶段一：处理 Pressed（新按下）
-    │   → 遍历 InputPressedSpecHandles
-    │   → 查找 Tag 匹配的 GA
-    │   → 调用 TryActivateAbility（检查 InputBlocked Tag）
-    │   → 若激活成功，将 Handle 加入 InputHeldSpecHandles
+    ├── Stage 1: Process Pressed (newly pressed)
+    │   → Iterate InputPressedSpecHandles
+    │   → Find Tag-matching GA
+    │   → Call TryActivateAbility (checks InputBlocked Tag)
+    │   → If activation succeeds, add Handle to InputHeldSpecHandles
     │
-    ├── 阶段二：处理 Held（按住持续）
-    │   → 遍历 InputHeldSpecHandles
-    │   → 对持续型 GA（如冲刺）检查是否需要更新
+    ├── Stage 2: Process Held (held continuous)
+    │   → Iterate InputHeldSpecHandles
+    │   → For sustained GAs (e.g., sprint), check if update is needed
     │
-    └── 阶段三：处理 Released（释放）
-        → 遍历 InputReleasedSpecHandles
-        → 通知对应 GA 输入已释放
-        → 清理 InputHeldSpecHandles 中的条目
+    └── Stage 3: Process Released (released)
+        → Iterate InputReleasedSpecHandles
+        → Notify corresponding GA that input was released
+        → Clean up entries in InputHeldSpecHandles
 ```
 
-### 输入阻塞
+### Input Blocking
 
-当 `bBlockInput = true` 时（如 Modal UI 层激活），`ProcessAbilityInput` 跳过所有处理，但不清空队列。阻塞解除后输入继续正常处理。
+When `bBlockInput = true` (e.g., Modal UI layer active), `ProcessAbilityInput` skips all processing but does not clear the queue. Input continues normal processing after the block is lifted.
 
 ---
 
-## GA 实现模板：GA_Jump
+## GA Implementation Template: GA_Jump
 
-以下是一个完整的 GA 实现模板（示意代码，非 Lyra 仓库中的实际文件），展示了 Lyra 中 GA 的标准结构：
+Below is a complete GA implementation template (illustrative code, not an actual file in the Lyra repository) showing the standard structure of a GA in Lyra:
 
 ```cpp
 UCLASS()
@@ -282,14 +282,14 @@ class UGA_Jump : public ULyraGameplayAbility
 public:
     UGA_Jump()
     {
-        // 激活组设为 Independent，不与其他技能冲突
+        // Set activation group to Independent, no conflict with other abilities
         ActivationGroup = ELyraAbilityActivationGroup::Independent;
 
-        // 激活时拥有的标签
+        // Tags owned while active
         ActivationOwnedTags.AddTag(TAG_Gameplay_Ability_Jump);
     }
 
-    // 检查是否能激活：角色必须在地面上
+    // Check if can activate: character must be on the ground
     virtual bool CanActivateAbility(
         const FGameplayAbilitySpecHandle Handle,
         const FGameplayAbilityActorInfo* ActorInfo,
@@ -314,15 +314,15 @@ public:
     {
         Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, ActorInfo, TriggerEventData);
 
-        // 1. 应用 Root Motion（可选）
-        // 2. 播放 Montage
-        // 3. 等待输入释放（AbilityTask_WaitInputRelease）
-        // 4. 应用 GameplayEffect（如消耗 Stamina）
-        // 5. CommitAbility 消耗 Cost
+        // 1. Apply Root Motion (optional)
+        // 2. Play Montage
+        // 3. Wait for input release (AbilityTask_WaitInputRelease)
+        // 4. Apply GameplayEffect (e.g., consume Stamina)
+        // 5. CommitAbility consumes Cost
 
         if (CommitAbility(Handle, ActorInfo, ActivationInfo))
         {
-            // 跳跃成功
+            // Jump successful
             Character->Jump();
         }
         else
@@ -338,7 +338,7 @@ public:
         bool bReplicateEndAbility,
         bool bWasCancelled) override
     {
-        // 清理状态
+        // Clean up state
         if (ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor))
         {
             Character->StopJumping();
@@ -351,11 +351,11 @@ public:
 
 ---
 
-## HealthComponent：生命值组件与死亡状态机
+## HealthComponent: Health Component & Death State Machine
 
-**文件**：`Source/LyraGame/Character/LyraHealthComponent.h`
+**File**: `Source/LyraGame/Character/LyraHealthComponent.h`
 
-`ULyraHealthComponent` 是属性集（数据层）和游戏事件（表现层）之间的桥梁：
+`ULyraHealthComponent` is the bridge between attribute sets (data layer) and game events (presentation layer):
 
 ```cpp
 UCLASS()
@@ -364,69 +364,69 @@ class ULyraHealthComponent : public UActorComponent
     GENERATED_BODY()
 
 public:
-    // 绑定到 ASC 的 HealthSet
+    // Bind to ASC's HealthSet
     void InitializeWithAbilitySystem(ULyraAbilitySystemComponent* ASC);
 
-    // 解除绑定
+    // Unbind
     void UninitializeFromAbilitySystem();
 
-    // 死亡状态查询
+    // Death state query
     bool IsDeadOrDying() const;
     ELyraDeathState GetDeathState() const;
 
-    // 触发死亡
+    // Trigger death
     void StartDeath();
     void FinishDeath();
 
-    // 事件委托
+    // Event delegates
     FOnHealthChangedDelegate OnHealthChanged;
     FOnHealthChangedDelegate OnMaxHealthChanged;
     FOnDeathStartedDelegate OnDeathStarted;
     FOnDeathFinishedDelegate OnDeathFinished;
 
 protected:
-    // 三态死亡状态机
+    // Three-state death state machine
     ELyraDeathState DeathState;
 };
 ```
 
-### 死亡状态机
+### Death State Machine
 
 ```
 NotDead ──→ DeathStarted ──→ DeathFinished
                │                    │
-               │ 禁用输入           │ 清理 GameplayTag
-               │ 播放死亡蒙太奇     │ 禁用碰撞
-               │ 解除 Pawn 控制     │ 销毁/隐藏 Actor
+               │ Disable input      │ Clear GameplayTag
+               │ Play death montage │ Disable collision
+               │ Unpossess Pawn     │ Destroy/hide Actor
                ▼                    ▼
            OnDeathStarted      OnDeathFinished
 ```
 
-### 调用流程
+### Call Flow
 
 ```
-GE 应用伤害
-    → ULyraDamageExecution (GEEC) 计算最终伤害
-    → HealthSet::Health 属性减少
-    → HealthComponent::OnHealthChanged 回调
-    → 检测 Health <= 0
+GE applies damage
+    → ULyraDamageExecution (GEEC) calculates final damage
+    → HealthSet::Health attribute decreases
+    → HealthComponent::OnHealthChanged callback
+    → Detects Health <= 0
     → StartDeath()
-        → 广播 OnDeathStarted
-        → 禁用输入
-        → 播放死亡动画
+        → Broadcasts OnDeathStarted
+        → Disables input
+        → Plays death animation
     → FinishDeath()
-        → 广播 OnDeathFinished
-        → 清理 GameplayTag
-        → 隐藏/销毁角色
+        → Broadcasts OnDeathFinished
+        → Clears GameplayTag
+        → Hides/destroys character
 ```
 
 ---
 
-## AbilityCost：消耗系统
+## AbilityCost: Cost System
 
-**文件**：`Source/LyraGame/AbilitySystem/Abilities/LyraAbilityCost.h`
+**File**: `Source/LyraGame/AbilitySystem/Abilities/LyraAbilityCost.h`
 
-Lyra 通过 `ULyraAbilityCost` 抽象类实现可扩展的能力消耗：
+Lyra implements extensible ability costs through the `ULyraAbilityCost` abstract class:
 
 ```cpp
 UCLASS(Abstract, DefaultToInstanced, EditInlineNew)
@@ -435,14 +435,14 @@ class ULyraAbilityCost : public UObject
     GENERATED_BODY()
 
 public:
-    // 执行消耗检查（能否支付）
+    // Execute cost check (can pay)
     virtual bool CheckCost(
         const ULyraGameplayAbility* Ability,
         const FGameplayAbilitySpecHandle Handle,
         const FGameplayAbilityActorInfo* ActorInfo,
         FGameplayTagContainer* OptionalRelevantTags) const;
 
-    // 执行消耗扣除
+    // Execute cost deduction
     virtual void ApplyCost(
         const ULyraGameplayAbility* Ability,
         const FGameplayAbilitySpecHandle Handle,
@@ -451,31 +451,31 @@ public:
 };
 ```
 
-### 内置消耗类型
+### Built-in Cost Types
 
-| 消耗类 | 用途 |
-|--------|------|
-| ULyraAbilityCost_ItemTagStack | 消耗 InventoryItemInstance 上的 TagStack 计数（如弹药） |
-| ULyraAbilityCost_AttributeSetBased | 基于 AttributeSet 属性的消耗（如体力值） |
+| Cost Class | Usage |
+|------------|-------|
+| ULyraAbilityCost_ItemTagStack | Consumes TagStack count on InventoryItemInstance (e.g., ammo) |
+| ULyraAbilityCost_AttributeSetBased | AttributeSet-based cost (e.g., stamina) |
 
-配置方式：在 `ULyraGameplayAbility` 的 `AdditionalCosts` 数组中添加：
+Configuration: Add to `AdditionalCosts` array in `ULyraGameplayAbility`:
 ```cpp
 UCLASS()
 class UMyShootAbility : public ULyraGameplayAbility
 {
-    // 在编辑器中配置 AdditionalCosts
-    // Example: ULyraAbilityCost_ItemTagStack → 每次射击消耗 1 发弹药
+    // Configure AdditionalCosts in the editor
+    // Example: ULyraAbilityCost_ItemTagStack → consumes 1 ammo per shot
 };
 ```
 
 ---
 
-## 关键设计要点
+## Key Design Points
 
-1. **AbilitySet 可装配** — GA/GE/AttributeSet 以数据资产形式组合，可在运行时通过 EquipmentInstance 授予和回收
-2. **ActivationGroup 策略化** — 将 GA 的并发控制从硬编码提升为声明式配置
-3. **TagRelationshipMapping 外部化** — Cancel/Block 关系放在数据资产中，不需要修改 C++ 代码调整技能关系
-4. **GE Context 可扩展** — CartridgeID 机制支持单次射击多次伤害的精确归因
-5. **ProcessAbilityInput 三阶段管线** — Pressed/Held/Released 分桶管理，支持输入阻塞和持续型技能
-6. **GA 模板标准结构** — CanActivateAbility → ActivateAbility → CommitAbility → 表现 → EndAbility
-7. **HealthComponent 死亡状态机** — NotDead→DeathStarted→DeathFinished 三态转换，委托驱动事件广播
+1. **AbilitySet is swappable** — GA/GE/AttributeSet are combined as data assets, grantable and revocable at runtime through EquipmentInstance
+2. **ActivationGroup as strategy** — GA concurrency control is elevated from hardcoded to declarative configuration
+3. **TagRelationshipMapping externalized** — Cancel/Block relationships are placed in data assets, no C++ code changes needed to adjust ability relationships
+4. **GE Context extensible** — CartridgeID mechanism enables precise attribution for multi-damage per shot
+5. **ProcessAbilityInput three-stage pipeline** — Pressed/Held/Released are bucketed separately, supporting input blocking and sustained abilities
+6. **GA template standard structure** — CanActivateAbility → ActivateAbility → CommitAbility → Execution → EndAbility
+7. **HealthComponent death state machine** — NotDead→DeathStarted→DeathFinished three-state transition, delegate-driven event broadcasting

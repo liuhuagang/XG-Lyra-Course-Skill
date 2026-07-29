@@ -1,29 +1,29 @@
-# UI 层栈架构
+# UI Layer Stack Architecture
 
-## 概述
+## Overview
 
-Lyra 的 UI 系统基于 **CommonUI** 插件构建，通过 `UPrimaryGameLayout` 管理四层 Widget 栈，每层独立显示和交互。这种架构使得 UI 的层级管理（HUD 在底层、菜单在中层、弹窗在顶层）成为声明式配置，而非手动管理。
+Lyra's UI system is built on the **CommonUI** plugin, using `UPrimaryGameLayout` to manage a four-layer Widget stack. Each layer displays and interacts independently. This architecture makes UI hierarchy management (HUD at the bottom, menus in the middle, modals at the top) a declarative configuration rather than manual management.
 
 ---
 
-## 四层栈结构
+## Four-Layer Stack Structure
 
 ```
-Modal（模态层）
-    ↑ 提示框、确认框 — BlockInput = true，阻挡下层交互
-Menu（功能层）
-    ↑ 背包、设置、商店、地图
-GameMenu（菜单层）
-    ↑ 游戏内暂停菜单（ESC 菜单）
-Game（游戏层）
-    ↑ HUD、准星、血条、技能冷却、击杀信息
+Modal (Modal Layer)
+    ↑ Dialogs, confirmation boxes — BlockInput = true, blocks lower layer interaction
+Menu (Menu Layer)
+    ↑ Inventory, settings, store, map
+GameMenu (Game Menu Layer)
+    ↑ In-game pause menu (ESC menu)
+Game (Game Layer)
+    ↑ HUD, crosshair, health bar, cooldowns, kill feed
 ```
 
 ---
 
 ## PrimaryGameLayout
 
-**文件**：`Plugins/CommonGame/Source/Public/PrimaryGameLayout.h`
+**File**: `Plugins/CommonGame/Source/Public/PrimaryGameLayout.h`
 
 ```cpp
 UCLASS()
@@ -32,7 +32,7 @@ class UPrimaryGameLayout : public UCommonActivatableWidgetStack
     GENERATED_BODY()
 
 public:
-    // 四层栈访问
+    // Four layer stack accessors
     UFUNCTION(BlueprintPure)
     UCommonActivatableWidgetStack* GetGameStack() const;
 
@@ -45,61 +45,61 @@ public:
     UFUNCTION(BlueprintPure)
     UCommonActivatableWidgetStack* GetModalStack() const;
 
-    // 获取玩家对应的 PrimaryGameLayout
+    // Get the PrimaryGameLayout for a specific player
     static UPrimaryGameLayout* GetPrimaryGameLayout(APlayerController* Controller);
 };
 ```
 
 ---
 
-## HUDLayout 结构
+## HUDLayout Structure
 
-**文件**：`Source/LyraGame/UI/LyraHUDLayout.h`
+**File**: `Source/LyraGame/UI/LyraHUDLayout.h`
 
-`ULyraHUDLayout` 是 ALyraHUD 创建的根 Widget，内部使用 CommonUI 的 Tier 布局：
+`ULyraHUDLayout` is the root Widget created by `ALyraHUD`, using CommonUI's Tier layout internally:
 
 ```
 ULyraHUDLayout
-    ├── TopLeft Tier（队伍信息、玩家列表）
-    ├── TopCenter Tier（游戏模式信息）
-    ├── TopRight Tier（网络状态、FPS）
-    ├── LowerLeft Tier（生命值、弹药、技能冷却）
-    ├── LowerMiddle Tier（快捷栏、当前装备）
-    └── LowerRight Tier（击杀信息、通知消息）
+    ├── TopLeft Tier (team info, player list)
+    ├── TopCenter Tier (game mode info)
+    ├── TopRight Tier (network status, FPS)
+    ├── LowerLeft Tier (health, ammo, cooldowns)
+    ├── LowerMiddle Tier (quick bar, current equipment)
+    └── LowerRight Tier (kill feed, notifications)
 ```
 
-HUD 布局使用 `UCommonBorder` 作为容器，通过 GameplayTag 控制各 Tier 的可见性。
+HUD layout uses `UCommonBorder` as containers, controlling each Tier's visibility through GameplayTags.
 
 ---
 
-## Widget 生命周期
+## Widget Lifecycle
 
-所有 UI Widget 继承 `UCommonActivatableWidget`，具有标准的生命周期：
+All UI Widgets inherit from `UCommonActivatableWidget` with a standard lifecycle:
 
 ```
 CreateWidget → OnInitialized
     ↓
 AddToStack → OnActivated
     ↓
-（Widget 活跃，接收输入）
+(Widget active, receiving input)
     ↓
-RemoveFromStack / Push 其他 Widget → OnDeactivated
+RemoveFromStack / Push another Widget → OnDeactivated
     ↓
-Widget 被销毁
+Widget destroyed
 ```
 
 ---
 
-## HUD 创建流程
+## HUD Creation Flow
 
 ```
 ALyraHUD::BeginPlay()
-    → 创建 ULyraHUDLayout Widget
-    → AddToViewport 并添加到 Game Layer
+    → Creates ULyraHUDLayout Widget
+    → AddToViewport and adds to Game Layer
 
 ALyraHUD::OnPlayerStateChanged()
-    → HUDLayout 各 Tier 根据 PlayerState 创建/更新子 Widget
-    → 示例：LowerLeftTier 创建 HealthWidget 和 AmmoWidget
+    → HUDLayout Tiers create/update child Widgets based on PlayerState
+    → Example: LowerLeftTier creates HealthWidget and AmmoWidget
 ```
 
 ---
@@ -107,39 +107,39 @@ ALyraHUD::OnPlayerStateChanged()
 ## Push/Pop Widget
 
 ```cpp
-// 向 Game 层 Push HUD
+// Push HUD to Game layer
 UPrimaryGameLayout* Layout = UPrimaryGameLayout::GetPrimaryGameLayout(Controller);
 UCommonActivatableWidget* HUDWidget = CreateWidget<UMyHUDWidget>(Controller);
 Layout->GetGameStack()->AddWidget(HUDWidget);
 
-// 向 Menu 层 Push 背包界面
+// Push inventory to Menu layer
 UCommonActivatableWidget* InventoryWidget = CreateWidget<UMyInventoryWidget>(Controller);
 Layout->GetMenuStack()->AddWidget(InventoryWidget);
 
-// 向 Modal 层 Push 确认框
+// Push confirmation dialog to Modal layer
 UCommonActivatableWidget* ConfirmWidget = CreateWidget<UMyConfirmDialog>(Controller);
 Layout->GetModalStack()->AddWidget(ConfirmWidget);
 ```
 
 ---
 
-## 输入阻挡规则
+## Input Blocking Rules
 
-| 层 | 输入行为 |
-|----|---------|
-| Game | 游戏输入（按键/鼠标）传递到 Pawn |
-| GameMenu | 游戏输入被阻挡，菜单输入生效 |
-| Menu | 游戏输入被阻挡，菜单输入生效 |
-| Modal | 所有输入被阻挡，仅模态框组件接收输入（BlockInput=true） |
+| Layer | Input Behavior |
+|-------|----------------|
+| Game | Game input (keyboard/mouse) passes through to Pawn |
+| GameMenu | Game input blocked, menu input active |
+| Menu | Game input blocked, menu input active |
+| Modal | All input blocked, only modal widget receives input (BlockInput=true) |
 
-`BlockInput` 特性由 CommonUI 原生提供：当 Modal 层有 Widget 时，自动设置输入模式为 `UI Only`。
+The `BlockInput` feature is natively provided by CommonUI: when the Modal layer has a Widget, the input mode is automatically set to `UI Only`.
 
 ---
 
-## 关键设计要点
+## Key Design Points
 
-1. **四层栈** — 自然映射了游戏的交互层级（HUD < 暂停菜单 < 功能界面 < 弹窗）
-2. **CommonUI 原生支持** — ActivatableWidget 的 Push/Pop 生命周期减少了手动管理输入模式的代码
-3. **Tier 布局** — HUDLayout 内部的 Tier 结构使得 HUD 元素的排列不依赖 Absolute 定位
-4. **GameplayTag 驱动可见性** — 各 Tier 通过 GameplayTag 控制显隐，与 GAS 的 Tag 体系统一
-5. **单例获取** — `GetPrimaryGameLayout` 通过 LocalPlayer 查找，保证每个玩家有独立的 UI 布局
+1. **Four-layer stack** — Naturally maps to game interaction hierarchy (HUD < pause menu < feature UI < dialogs)
+2. **CommonUI native support** — ActivatableWidget's Push/Pop lifecycle reduces manual input mode management code
+3. **Tier layout** — HUDLayout's internal Tier structure arranges HUD elements without relying on Absolute positioning
+4. **GameplayTag-driven visibility** — Each Tier controls visibility through GameplayTags, unified with GAS's Tag system
+5. **Singleton access** — `GetPrimaryGameLayout` looks up through LocalPlayer, ensuring each player has an independent UI layout

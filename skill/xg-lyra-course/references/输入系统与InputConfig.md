@@ -1,14 +1,14 @@
-# 输入系统与 InputConfig
+# Input System & InputConfig
 
-## 概述
+## Overview
 
-Lyra 的输入系统基于 **Enhanced Input**，通过 **Tag 映射**将输入动作与 GameplayAbility 解耦。核心思路：输入产生 GameplayTag，Tag 驱动能力激活。
+Lyra's input system is based on **Enhanced Input**, decoupling input actions from GameplayAbilities via **Tag mapping**. Core idea: input generates a GameplayTag, and the Tag drives ability activation.
 
 ---
 
-## InputConfig 数据结构
+## InputConfig Data Structure
 
-**文件**：`Source/LyraGame/Input/LyraInputConfig.h`
+**File**: `Source/LyraGame/Input/LyraInputConfig.h`
 
 ```cpp
 USTRUCT(BlueprintType)
@@ -16,11 +16,11 @@ struct FLyraInputAction
 {
     GENERATED_BODY()
 
-    // 输入对应的 GameplayTag，如 InputTag.Move、InputTag.Jump
+    // GameplayTag corresponding to the input, e.g., InputTag.Move, InputTag.Jump
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
     FGameplayTag InputTag;
 
-    // 对应的 Enhanced Input Action 资源
+    // Corresponding Enhanced Input Action asset
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
     TObjectPtr<UInputAction> InputAction = nullptr;
 };
@@ -31,11 +31,11 @@ class ULyraInputConfig : public UDataAsset
     GENERATED_BODY()
 
 public:
-    // 所有 Tag→InputAction 映射
+    // All Tag→InputAction mappings
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
     TArray<FLyraInputAction> InputActions;
 
-    // 根据 Tag 查找对应的 InputAction
+    // Find the corresponding InputAction by Tag
     UFUNCTION(BlueprintCallable)
     const UInputAction* FindInputActionForTag(const FGameplayTag& Tag) const
     {
@@ -53,11 +53,11 @@ public:
 
 ---
 
-## 绑定流程
+## Binding Flow
 
-### 第一步：设置输入映射上下文
+### Step 1: Set Up Input Mapping Context
 
-**文件**：`Source/LyraGame/Character/LyraHeroComponent.h`
+**File**: `Source/LyraGame/Character/LyraHeroComponent.h`
 
 ```cpp
 void ULyraHeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComponent)
@@ -66,20 +66,20 @@ void ULyraHeroComponent::InitializePlayerInput(UInputComponent* PlayerInputCompo
     ULocalPlayer* LP = Cast<ULocalPlayer>(PC->GetLocalPlayer());
     UEnhancedInputLocalPlayerSubsystem* Subsystem = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
 
-    // 添加输入映射上下文
-    // LyraInputMapping 是一个 UInputMappingContext，在 Content 中定义
+    // Add input mapping context
+    // LyraInputMapping is a UInputMappingContext, defined in Content
     Subsystem->AddMappingContext(LyraInputMapping, Priority);
 
-    // 绑定能力激活
+    // Bind ability activation
     ULyraInputComponent* LyraInputComp = ...;
     LyraInputComp->BindAbilityActions(InputConfig, InputHandles,
         this, &ThisClass::OnInputStarted, &ThisClass::OnInputTriggered, &ThisClass::OnInputCompleted);
 }
 ```
 
-### 第二步：Tag 绑定到 GA
+### Step 2: Tag Binding to GA
 
-**文件**：`Source/LyraGame/Input/LyraInputComponent.h`
+**File**: `Source/LyraGame/Input/LyraInputComponent.h`
 
 ```cpp
 void ULyraInputComponent::BindAbilityActions(
@@ -94,7 +94,7 @@ void ULyraInputComponent::BindAbilityActions(
     {
         if (Action.InputAction)
         {
-            // 为每个 InputAction 绑定三个阶段的回调
+            // Bind three-stage callbacks for each InputAction
             uint32 Handle = BindNativeAction(
                 Action.InputAction,
                 ETriggerEvent::Started,
@@ -126,18 +126,18 @@ void ULyraInputComponent::BindAbilityActions(
 }
 ```
 
-### 第三步：HeroComponent 处理输入事件
+### Step 3: HeroComponent Handles Input Events
 
 ```cpp
 void ULyraHeroComponent::OnInputStarted(const FInputActionInstance& InputAction)
 {
-    // 获取绑定的 Tag
+    // Get the bound Tag
     FGameplayTag InputTag = InputAction.GetSourceObject()->GetGameplayTag();
 
-    // 通过 AbilitySystemComponent 激活对应的 GA
+    // Activate the corresponding GA through AbilitySystemComponent
     if (ASC && ASC->IsOwnerActorAuthoritative())
     {
-        // 直接输入激活
+        // Direct input activation
         ASC->AbilityLocalInputPressed(InputTag);
     }
 }
@@ -145,46 +145,46 @@ void ULyraHeroComponent::OnInputStarted(const FInputActionInstance& InputAction)
 
 ---
 
-## 输入修饰器（Input Modifiers）
+## Input Modifiers
 
-Lyra 使用 Enhanced Input 的 Modifier 机制处理输入预处理：
+Lyra uses Enhanced Input's Modifier mechanism for input preprocessing:
 
-| 修饰器 | 功能 |
-|--------|------|
-| `UInputModifierDeadZone` | 摇杆死区处理 |
-| `UInputModifierNegate` | 输入值取反 |
-| `UInputModifierScalar` | 输入值缩放 |
-| `UInputModifierFOVScaling` | 根据 FOV 缩放鼠标灵敏度 |
+| Modifier | Function |
+|----------|----------|
+| `UInputModifierDeadZone` | Joystick dead zone processing |
+| `UInputModifierNegate` | Invert input values |
+| `UInputModifierScalar` | Scale input values |
+| `UInputModifierFOVScaling` | Scale mouse sensitivity based on FOV |
 
-鼠标灵敏度缩放是 Lyra 特有的做法：
+Mouse sensitivity scaling is a Lyra-specific approach:
 ```
 MouseSensitivity = BaseSensitivity * FOVScalingFactor
 ```
-其中 `FOVScalingFactor` 由 `UInputModifierFOVScaling` 根据当前 CameraMode 的 FOV 计算。
+Where `FOVScalingFactor` is calculated by `UInputModifierFOVScaling` based on the current CameraMode's FOV.
 
 ---
 
-## 完整链路
+## Complete Chain
 
 ```
-玩家按键/摇杆
-    → EnhancedInput 触发 UInputAction
-    → Input Modifier 处理（死区/缩放/FOV）
-    → ULyraInputComponent 的绑定回调
+Player presses button/moves joystick
+    → EnhancedInput triggers UInputAction
+    → Input Modifier processing (dead zone/scale/FOV)
+    → ULyraInputComponent bound callbacks
     → HeroComponent::OnInputStarted/OnInputTriggered/OnInputCompleted
-    → Tag 匹配（InputTag.Move → ASC 激活 GA）
-    → 对应 GameplayAbility 执行
+    → Tag matching (InputTag.Move → ASC activates GA)
+    → Corresponding GameplayAbility executes
 ```
 
 ---
 
-## 添加新的输入绑定
+## Adding New Input Bindings
 
 ```cpp
-// 1. 在 Content 中创建 UInputAction 和 UInputMappingContext
-// 2. 在 InputConfig 数据资产中添加 Tag→InputAction 映射
+// 1. Create UInputAction and UInputMappingContext in Content
+// 2. Add Tag→InputAction mapping in the InputConfig data asset
 
-// 3. 在 GA 中设置 InputTag
+// 3. Set InputTag in GA
 UCLASS()
 class UMyShootAbility : public ULyraGameplayAbility
 {
@@ -193,7 +193,7 @@ class UMyShootAbility : public ULyraGameplayAbility
 public:
     UMyShootAbility()
     {
-        // 与 InputConfig 中配置的 Tag 一致
+        // Must match the Tag configured in InputConfig
         AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("InputTag.Shoot"));
     }
 };
@@ -201,9 +201,9 @@ public:
 
 ---
 
-## 关键设计要点
+## Key Design Points
 
-1. **Tag 驱动** — 输入和 GA 之间通过 FGameplayTag 连接，双方不需要互相引用
-2. **三阶段回调** — Started/Triggered/Completed 分别对应按下、持续、释放
-3. **映射上下文优先级** — 多个输入上下文通过优先级控制覆盖关系（如：UI 打开时游戏输入被阻挡）
-4. **本地玩家子系统** — EnhancedInputLocalPlayerSubsystem 管理每个玩家的输入映射上下文
+1. **Tag-driven** — Input and GA are connected via FGameplayTag, neither needs a direct reference to the other
+2. **Three-stage callbacks** — Started/Triggered/Completed correspond to press, hold, and release respectively
+3. **Mapping context priority** — Multiple input contexts control override relationships through priority (e.g., game input blocked when UI is open)
+4. **Local player subsystem** — EnhancedInputLocalPlayerSubsystem manages each player's input mapping contexts

@@ -1,89 +1,89 @@
-# InitState 初始化状态机
+# InitState Initialization State Machine
 
-## 概述
+## Overview
 
-Lyra 使用**4 态初始化状态机**协调 Pawn 各组件（ASC、Input、Camera、Movement）的初始化顺序。任何实现 `IGameFrameworkInitStateInterface` 的组件都可以注册到状态机中，按依赖顺序逐步初始化。
+Lyra uses a **4-state initialization state machine** to coordinate the initialization order of Pawn components (ASC, Input, Camera, Movement). Any component implementing `IGameFrameworkInitStateInterface` can register with the state machine and initialize step by step according to dependency order.
 
 ---
 
-## 核心接口
+## Core Interface
 
-**文件**：接口来自 Engine 模块 `Components/GameFrameworkInitStateInterface.h`
+**File**: Interface from Engine module `Components/GameFrameworkInitStateInterface.h`
 
 ```cpp
 class IGameFrameworkInitStateInterface
 {
 public:
-    // 返回此组件的特征名，用于标识和依赖匹配
+    // Returns this component's feature name, used for identification and dependency matching
     virtual FName GetFeatureName() const = 0;
 
-    // 返回此组件期望达到的状态名
+    // Returns the state name this component expects to reach
     virtual FName GetDesiredState() const = 0;
 
-    // 返回此组件依赖的"某 Feature 的某状态"
-    // 例如：依赖 "PawnFeature" 的 "DataAvailable" 状态
+    // Returns the "certain Feature's certain state" that this component depends on
+    // Example: depends on "PawnFeature"'s "DataAvailable" state
     virtual FName GetRequiredState(const FName& FeatureName) const = 0;
 
-    // 返回此组件达到哪个状态后，依赖它的其他组件可以继续
+    // Returns which state this component must reach before dependent components can proceed
     virtual FName GetPrerequisiteState(const FName& FeatureName) const = 0;
 
-    // 状态变更通知
+    // State change notification
     virtual void OnStateChanged(FName OldState, FName NewState) = 0;
 
-    // 组件初始化前调用
+    // Called before component initialization
     virtual void OnActorPreInitialize() = 0;
 
-    // 组件初始化后调用
+    // Called after component initialization state changes
     virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) = 0;
 };
 ```
 
 ---
 
-## 4 态链
+## 4-State Chain
 
 ```
-Spawned（已生成）
-    │  Pawn 被创建，组件已 Register，基本内存就绪
+Spawned
+    │  Pawn created, components Registered, basic memory ready
     ▼
-DataAvailable（数据就绪）
-    │  PawnExtensionComponent 就绪，其他组件可安全引用
+DataAvailable
+    │  PawnExtensionComponent ready, other components can safely reference it
     ▼
-DataInitialized（数据初始化完成）
-    │  HeroComponent 就绪，输入绑定完成，ASC 可开始授予能力
+DataInitialized
+    │  HeroComponent ready, input binding complete, ASC can begin granting abilities
     ▼
-GameplayReady（游戏玩法就绪）
-    │  所有组件就绪，Camera、Movement 完全可用
+GameplayReady
+    │  All components ready, Camera and Movement fully usable
 ```
 
 ---
 
-## 关键参与者
+## Key Participants
 
-| 组件 | 文件路径 | 注册状态 | 前置依赖 | 特征名 |
-|------|---------|---------|---------|--------|
+| Component | File Path | Registered State | Prerequisite | Feature Name |
+|-----------|-----------|-----------------|--------------|--------------|
 | ULyraPawnExtensionComponent | `Character/LyraPawnExtensionComponent.h` | DataAvailable | Spawned | "PawnExtension" |
 | ULyraHeroComponent | `Character/LyraHeroComponent.h` | DataInitialized | DataAvailable | "Hero" |
-| UAbilitySystemComponent | 内置 GAS | GameplayReady | DataInitialized | "AbilitySystem" |
+| UAbilitySystemComponent | Built-in GAS | GameplayReady | DataInitialized | "AbilitySystem" |
 | ULyraCameraComponent | `Camera/LyraCameraComponent.h` | GameplayReady | DataInitialized | "Camera" |
 | ULyraInputComponent | `Input/` | DataInitialized | DataAvailable | "Input" |
 
 ---
 
-## 注册与使用
+## Registration & Usage
 
-### 组件注册 InitState
+### Component Registering InitState
 
 ```cpp
-// 在组件的 OnRegister() 中注册
+// Register in the component's OnRegister()
 void UMyPawnComponent::OnRegister()
 {
     Super::OnRegister();
 
-    // 注册到全局 InitState 管理器
+    // Register with the global InitState manager
     RegisterInitStateFeature();
 
-    // 注册依赖关系：依赖 PawnExtension 的 DataAvailable
+    // Register dependency: depends on PawnExtension's DataAvailable
     BindOnActorInitStateChanged(
         FName("PawnExtension"),
         FGameplayTag::RequestGameplayTag("InitState.DataAvailable"),
@@ -93,75 +93,75 @@ void UMyPawnComponent::OnRegister()
 }
 ```
 
-### 状态推进
+### State Advancement
 
 ```cpp
-// 当组件就绪时，推进状态
+// Advance state when the component is ready
 void UMyPawnComponent::OnActorInitStateChanged(
     const FActorInitStateChangedParams& Params)
 {
-    // 检查依赖是否满足
+    // Check if dependency is satisfied
     if (Params.FeatureName == FName("PawnExtension") &&
         Params.FeatureState == FGameplayTag::RequestGameplayTag("InitState.DataAvailable"))
     {
-        // 前置条件满足，初始化本组件
+        // Prerequisite satisfied, initialize this component
         InitializeMyComponent();
 
-        // 推进到目标状态
+        // Advance to target state
         CheckDefaultInitializationForFeature();
     }
 }
 
 void UMyPawnComponent::CheckDefaultInitializationForFeature()
 {
-    // 调用框架方法，沿状态链推进
+    // Call framework method to advance along the state chain
     ContinueInitStateChain();
 }
 ```
 
 ---
 
-## 状态机管理器
+## State Machine Manager
 
-全局 InitState 管理器由引擎框架隐式提供，通过以下函数访问状态：
+The global InitState manager is implicitly provided by the engine framework, accessed through the following functions:
 
-| 函数 | 功能 |
-|------|------|
-| `RegisterInitStateFeature()` | 注册组件到状态机 |
-| `UnregisterInitStateFeature()` | 卸载组件 |
-| `CheckDefaultInitializationForFeature()` | 尝试沿状态链推进 |
-| `ContinueInitStateChain()` | 显式推进到下一状态 |
-| `BindOnActorInitStateChanged()` | 监听其他组件的状态变化 |
+| Function | Description |
+|----------|-------------|
+| `RegisterInitStateFeature()` | Register component with the state machine |
+| `UnregisterInitStateFeature()` | Unregister component |
+| `CheckDefaultInitializationForFeature()` | Attempt to advance along the state chain |
+| `ContinueInitStateChain()` | Explicitly advance to the next state |
+| `BindOnActorInitStateChanged()` | Listen for state changes of other components |
 
 ---
 
-## 典型流程
+## Typical Flow
 
 ```
 Pawn Spawned
     → PawnExtensionComponent::OnRegister()
         → RegisterInitStateFeature()
-        → 状态推进：Spawned → DataAvailable
+        → State advance: Spawned → DataAvailable
 
     → HeroComponent::OnRegister()
         → RegisterInitStateFeature()
         → BindOnActorInitStateChanged("PawnExtension", "DataAvailable")
-        → 等待 PawnExtension 的 DataAvailable 通知
+        → Waits for PawnExtension's DataAvailable notification
 
-    → PawnExtensionComponent 达到 DataAvailable
-        → 通知所有绑定的组件
-        → HeroComponent::OnActorInitStateChanged 被调用
-        → 初始化 ASC
-        → 状态推进：DataAvailable → DataInitialized
+    → PawnExtensionComponent reaches DataAvailable
+        → Notifies all bound components
+        → HeroComponent::OnActorInitStateChanged is called
+        → Initializes ASC
+        → State advance: DataAvailable → DataInitialized
 
-    → ASC 初始化完成
-        → 通知绑定的相机和输入组件
-        → 状态推进：DataInitialized → GameplayReady
+    → ASC initialization complete
+        → Notifies bound camera and input components
+        → State advance: DataInitialized → GameplayReady
 ```
 
 ---
 
-## 自定义组件接入 InitState
+## Custom Component Accessing InitState
 
 ```cpp
 UCLASS()
@@ -175,10 +175,10 @@ public:
     {
         Super::OnRegister();
 
-        // 1. 注册特征
+        // 1. Register feature
         RegisterInitStateFeature();
 
-        // 2. 声明依赖 PawnExtension 的 DataAvailable
+        // 2. Declare dependency on PawnExtension's DataAvailable
         BindOnActorInitStateChanged(
             FName("PawnExtension"),
             FGameplayTag::RequestGameplayTag("InitState.DataAvailable"),
@@ -196,14 +196,14 @@ public:
         return FName("GameplayReady");
     }
 
-    // 达到依赖条件后，推进自己的状态
+    // After dependency condition is met, advance own state
     virtual void OnActorInitStateChanged(
         const FActorInitStateChangedParams& Params) override
     {
         if (Params.FeatureName == FName("PawnExtension") &&
             Params.FeatureState == FGameplayTag::RequestGameplayTag("InitState.DataAvailable"))
         {
-            // 初始化逻辑
+            // Initialization logic
             // ...
 
             ContinueInitStateChain();
@@ -214,9 +214,9 @@ public:
 
 ---
 
-## 关键设计要点
+## Key Design Points
 
-1. **依赖声明** — 每个组件显式声明自己依赖哪个 Feature 的哪个状态，不依赖隐式顺序
-2. **异步推进** — 状态推进通过回调通知，不依赖 Tick，支持网络同步场景
-3. **可扩展** — 新增组件只需实现接口并注册，不影响已有组件
-4. **状态回退** — 当 Pawn 被销毁或复用（如 Dormancy）时，状态自动回退到起点
+1. **Dependency declaration** — Each component explicitly declares which Feature state it depends on, not relying on implicit order
+2. **Asynchronous advancement** — State advances through callbacks, not dependent on Tick, supports network synchronization scenarios
+3. **Extensible** — New components just need to implement the interface and register, without affecting existing components
+4. **State rollback** — When a Pawn is destroyed or reused (e.g., Dormancy), state automatically rolls back to the starting point

@@ -1,6 +1,8 @@
-refactor: reorganize project structure
+feat: full English translation of Lyra course documents
 
-- Condense .trae/skills/xg-lyra-course/ to skill/xg-lyra-course/
-- Move knowledge/ Chinese originals to knowledge/zh/, remove log.md
-- Add README indexes for knowledge/ and knowledge/zh/
-- Update all references in README.md
+- README.md → English (with README.zh.md preserved)
+- skill/xg-lyra-course/SKILL.md → English
+- skill/xg-lyra-course/references/ → 9 English reference docs
+- knowledge/en/course-syllabus.md → English syllabus
+- knowledge/en/chapters/ → 10 English chapter entries
+- knowledge/en/detailed/ → 90 English sub-docs (ch1-ch10)
